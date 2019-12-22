@@ -1,0 +1,367 @@
+---
+Author: Gustavo Venturi
+Date: 13 de Dezembro de 2019
+Title: Qualidade do Ar em Pequim
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+#**Qualidade do Ar em Pequim**
+
+
+######Data: 13 de Dezembro de 2019
+######Autor: Gustavo Venturi
+######e-mail: gustavo_venturi@hotmail.com
+#####**Descrição**
+
+
+Esta é uma análise dos dados sobre a qualidade do ar da cidade de Pequim na China, coletados no período de Março de 2013 a Fevereiro de 2017.  
+Os dados se baseiam em 6 variáveis de qualidade do ar e 6 variáveis meteorológicas.  
+O data set está disponível em: https://archive.ics.uci.edu/ml/datasets/Beijing+Multi-Site+Air-Quality+Data
+
+
+ 
+##**Sobre a análise dos dados**
+
+
+Com base nos dados disponíveis, será analisado o poluente **PM 2.5** o qual trata-se de material particulado suspenso no ar com tamanho menor ou igual a 2.5 μm.  
+Altas concentrações de PM 2.5, podem causar danos severos ao sistema respiratório.  
+Segundo a OMS (Organização Mundial de Saúde), os limites toleráveis destas partículas são:  
+» Média anual: 10 μg/m³  
+» Média 24 horas: 25 μg/m³
+
+
+######*Fonte: https://apps.who.int/iris/bitstream/handle/10665/69477/WHO_SDE_PHE_OEH_06.02_eng.pdf;jsessionid=4BA80EAA77F8DD1CC0C6798EADBF1C8F?sequence=1*
+
+##**Tratamento do Arquivo**
+
+
+O arquivo foi baixado em formato `.zip`, então foi utilizado o pacote `zip` para descompactar os arquivos.
+Para organizar os dados foram utilizadas as bibliotecas `readr`e `plyr`.  
+``` {r, echo = F, message=F}
+##------------------------------------------------##
+##            TRATAMENTO DO ARQUIVO               ##
+##------------------------------------------------##
+
+
+#install.packages("zip") #pacote para descompactar e compactar arquivos .zip
+#library(zip)
+
+#getwd() #verifica qual é a pasta de trabalho atual
+#setwd("C:\\Users\\gusta\\OneDrive\\Documentos\\RStudio\\UP_Pos_RScript\\AIR_QUALITY") #seta a pasta de trabalho desejada
+#getwd() # verifica a pasta de trabalho.
+
+dados = unzip("C:\\Users\\gusta\\OneDrive\\Documentos\\RStudio\\UP_Pos_RScript\\AIR_QUALITY\\PRSA2017_Data_20130301-20170228.zip") #descompacta os dados na pasta informada.
+
+#pacotes abaixo para ler e organizar os arquivos descompactados
+#install.packages("plyr")
+#install.packages("readr")
+library(plyr)
+library(readr)
+
+diretorio = "PRSA_Data_20130301-20170228" # nome da pasta que estão os arquivos CSV
+dados = list.files(path=diretorio, pattern="*.csv", full.names=TRUE) #lista os arquivos que possuem extensão .CSV na pasta.
+#dados
+
+tabelas = ldply(dados, read_csv) #faz a leitura dos dados das tabelas - todos os dados são agrupados pelo nome da primeira linha do csv.
+#tabelas
+#tabelas["data"] = as.date(c(paste(tabelas$year,'-',tabelas$month,'-',tabelas$day))) #concatena ano, mes, dia em uma coluna
+tabelas = data.frame(tabelas) #transforma a tabela em um data frame
+head(tabelas)
+```
+
+
+###**Evolução Anual da PM 2.5** 
+
+O parâmetro que a OMS define como limite máximo é 10 μg/m³.
+
+```{r, echo = F, message=F, warning=FALSE}
+#install.packages("ggplot2")
+library(ggplot2)
+#Plota um gráfico boxplot agrupado pelos anos
+ggplot(tabelas, 
+       aes(x = tabelas$year, y = tabelas$PM2.5, group = tabelas$year)) + 
+       geom_boxplot(show.legend = FALSE)+
+       xlab("ANOS")+
+       ylab("VOLUME PM 2.5 (μg/m³)")
+
+```
+
+
+O gráfico acima mostra que no ano de 2017 houve um aumento na variação das partículas(maior a altura do boxplot), porém a maior média (linha central no boxplot) está no ano de 2014, e no ano de 2016 possui mais valores discrepantes.
+
+
+##**Sazonalidade Diária**
+
+Neste indicador a OMS informa que o valor máximo deveria ser 25 μg/m³.   
+
+```{r, echo = F, message=F, warning=FALSE}
+library(ggplot2)
+ggplot(tabelas, 
+       aes(x = tabelas$hour, y = tabelas$PM2.5, group = tabelas$hour)) + 
+       geom_boxplot(show.legend = FALSE)+
+       xlab("HORÁRIO")+
+       ylab("VOLUME PM 2.5 (μg/m³)")
+
+```
+  
+  
+Analisando a sazonalidade de horário, mostra que os maiores volumes de dispersão de populuentes ocorrem a noite.
+No boxplot demonstra que o menor volume e menos discrepante ocorre as 8 horas da manhã e na mediana o horário com menos poluente PM 2.5 é 17 horas.  
+
+
+
+
+##**PM 2.5 por Estação**
+
+Verificando a concentração de PM 2.5 por estação, constata-se que a estação de Dingling e Chengping possuem menor concentração, estas estações estão localizadas no subúrbio ao norte de Pequim, em uma área distante do centro da cidade.  
+
+
+
+O gráfico abaixo indica a média de PM 2.5 por horário, confirmando que as regiões de Chengping e Dingling, possuem níveis menores do poluente e também possuem um padrão diferente da média, sendo os maiores níveis nos horários comerciais. 
+
+```{r, echo = F, message=F, warning=FALSE}
+
+#MEDIANA POR HORÁRIO
+mediana_horario = aggregate(tabelas$PM2.5, list(tabelas$hour),FUN = median, na.rm = TRUE, na.action = NULL)
+#MEDIA POR HORARIO
+media_horario = aggregate(tabelas$PM2.5, list(hora = tabelas$hour,estacao = tabelas$station),FUN = mean, na.rm = TRUE, na.action = NULL)
+#DESVIO POR HORARIO
+desvio_horario = aggregate(tabelas$PM2.5, list(tabelas$hour),FUN = sd, na.rm = TRUE)
+#VARIANCIA POR HORARIO
+var_horario = aggregate(tabelas$PM2.5, list(tabelas$hour),FUN = var, na.rm = TRUE)
+
+library(RColorBrewer)
+numRegister <- 300 ## Number of colors.
+mycolors <- colorRampPalette(brewer.pal(n = 300,"Set2"))(numRegister)
+
+gr = ggplot(media_horario, aes(media_horario$hora, media_horario$x)) +
+  geom_line(show.legend = F) +
+  geom_point(show.legend = F, size = 1.5)  +
+  xlab("HORÁRIO")+
+  ylab("MÉDIA PM 2.5")
+
+gr + facet_grid(media_horario$estacao ~ ., scales = "free", space = "free_x") +
+   theme(axis.text.y.left = element_text(size = 5) ,strip.text.y = element_text(angle = 0))
+
+```
+
+##**Heatmap**
+
+
+Verifica-se que no heatmap o local com menor incidência de poluentes é **Dingling**, e com maior incidência é **Nongzhanguan**.
+
+
+```{r, echo = F, message=F, warning=FALSE}
+
+
+agg_station = aggregate(tabelas,by = list(station = tabelas$station),FUN = mean, na.rm = TRUE, na.action = NULL)
+
+df_agg = data.frame(agg_station, row.names = agg_station$station)
+
+cols.dont.want <- c("station", "No", "year", "month", "day", "hour", "wd", "station.1") # remover colunas irrelevantes para heatmap
+
+df_agg <- df_agg[, ! names(df_agg) %in% cols.dont.want, drop = F]
+
+df_agg = data.matrix(df_agg, sort(df_agg$PM2.5))
+
+
+heatmap(df_agg, scale = "column", col = heat.colors(256, rev = T), Rowv = T, Colv = NA, xlab = "Média")
+
+```
+
+
+Analisando a mediana, percebe-se que a incidência de chuvas é baixa em todas as estações meteorológicas e verificando os níveis de poluentes há uma distinção entre os locais mais poluídos dos menos poluídos.
+
+```{r, echo = F, message=F, warning=FALSE}
+agg_station_median = aggregate(tabelas,by = list(station = tabelas$station),FUN = median, na.rm = TRUE, na.action = TRUE)
+
+df_agg_median = data.frame(agg_station_median, row.names = agg_station_median$station)
+
+cols.dont.want <- c("station", "No", "year", "month", "day", "hour", "wd", "station.1") # remover colunas irrelevantes para heatmap
+
+df_agg_median <- df_agg_median[, ! names(df_agg_median) %in% cols.dont.want, drop = F]
+
+df_agg_median = data.matrix(df_agg_median, sort(df_agg_median$PM2.5))
+
+
+heatmap(df_agg_median, scale = "column", col = heat.colors(256, rev = T), Rowv = T, Colv = NA, xlab = "Mediana")
+
+```
+
+A análise da variância e o desvio padrão indicam o quanto as medições variaram no período, ou seja, mostra a estabilidade da qualidade do ar. Fazendo um paralelo com as análises anteriores, percebe-se que os locais mais poluídos possuem maior instabilidade.
+
+```{r, echo = F, message=F, warning=FALSE}
+
+
+agg_station_var = aggregate(tabelas,by = list(station = tabelas$station),FUN = var, na.rm = TRUE)
+
+df_agg_var = data.frame(agg_station_var, row.names = agg_station_var$station)
+
+cols.dont.want <- c("station", "No", "year", "month", "day", "hour", "wd", "station.1") # remover colunas irrelevantes para heatmap
+
+df_agg_var <- df_agg_var[, ! names(df_agg_var) %in% cols.dont.want, drop = F]
+
+df_agg_var = data.matrix(df_agg_var, sort(df_agg_var$PM2.5))
+
+
+heatmap(df_agg_var, scale = "column", col = heat.colors(256, rev = T), Rowv = T, Colv = NA, xlab = "Variância")
+
+```
+
+```{r, echo = F, message=F, warning=FALSE}
+
+agg_station_sd = aggregate(tabelas,by = list(station = tabelas$station),FUN = sd, na.rm = TRUE)
+
+df_agg_sd = data.frame(agg_station_sd, row.names = agg_station_sd$station)
+
+cols.dont.want <- c("station", "No", "year", "month", "day", "hour", "wd", "station.1") # remover colunas irrelevantes para heatmap
+
+df_agg_sd <- df_agg_sd[, ! names(df_agg_sd) %in% cols.dont.want, drop = F]
+
+df_agg_sd = data.matrix(df_agg_sd, sort(df_agg_sd$PM2.5))
+
+
+heatmap(df_agg_sd, scale = "column", col = heat.colors(256, rev = T), Rowv = T, Colv = NA, xlab = "Desvio Padrão")
+```
+
+
+
+
+
+##Análise de Regressão
+
+
+
+Abaixo segue os gráficos de correlação entre PM2.5 e elementos meteorológicos.
+A avaliação é feita pelo **teste t**, no qual se o seu produto **p** resultar em um valor inferior a 0.05, a correlação é válida, caso contrário é recomendável rejeitar a hipótese.  
+
+
+###**PM2.5 e Temperatura**
+
+
+Verifica-se que essa correlação é forte, mostrando que quanto menor é a temperatura, maior é a concentração de PM2.5.  
+
+```{r, echo = F, message=F, warning=FALSE}
+
+#tab_hm = ldply(dados, read_csv)
+
+#tab_clean = tabelas[,6:15] +
+#  na.action(na.omit())
+
+
+agg_1 = aggregate(tabelas$PM2.5, list(tabelas$TEMP),FUN = mean, na.rm = TRUE, na.action = NULL)
+
+reg1 = lm(agg_1$Group.1 ~ agg_1$x) 
+#reg
+
+shapiro.test(rstudent(reg1))
+
+plot(rstudent(reg1) ~ fitted(reg1), pch = 0.9, main = "TEMP") +
+abline(reg1, lty = 1)
+
+```
+
+
+###**PM2.5 e Chuva**
+
+Neste teste vemos que quanto menor é a quantidade de chuva, maior é o acumulo de PM2.5.  
+```{r, echo = F, message=F, warning=FALSE}
+agg_2 = aggregate(tabelas$PM2.5, list(tabelas$RAIN),FUN = mean, na.rm = TRUE, na.action = NULL)
+
+reg2 = lm(agg_2$Group.1 ~ agg_2$x) 
+#reg
+
+shapiro.test(rstudent(reg2))
+
+plot(rstudent(reg2) ~ fitted(reg2), pch = 0.9, main = "RAIN") +
+abline(reg2, lty = 1)
+
+```
+###**PM2.5 e Dew Point** *(Ponto de orvalho)*
+
+
+Neste teste verifica-se que há uma sazonalidade, mostrando que conforme a temperatura de Dew Point sofre variações, também altera a concentração de PM2.5 em uma correlação polinomial.
+
+```{r, echo = F, message=F, warning=FALSE}
+
+agg_3 = aggregate(tabelas$PM2.5, list(tabelas$DEWP),FUN = mean, na.rm = TRUE, na.action = NULL)
+
+reg3 = lm(agg_3$Group.1 ~ agg_3$x) 
+#reg
+
+shapiro.test(rstudent(reg3))
+
+plot(rstudent(reg3) ~ fitted(reg3), pch = 0.9, main = "DEWP") +
+abline(reg3, lty = 1)
+```
+
+###**PM2.5 e Velocidade do Vento**
+
+
+A velocidade do vento influencia na dispersão das particulas PM2.5, sendo maior é a velocidade do vento, maior é a dispersão.
+```{r, echo = F, message=F, warning=FALSE}
+agg_4 = aggregate(tabelas$PM2.5, list(tabelas$WSPM),FUN = mean, na.rm = TRUE, na.action = NULL)
+
+reg4 = lm(agg_4$Group.1 ~ agg_4$x) 
+#reg
+
+shapiro.test(rstudent(reg4))
+
+plot(rstudent(reg4) ~ fitted(reg4), pch = 0.9, main = "WSPM") +
+abline(reg4, lty = 1)
+
+```
+
+###**Correlação Multivariada**
+
+Nesta analise foram comparados os demais poluentes com o PM2.5.  
+
+Todos os poluentes tem correlação válida.  
+
+```{r, echo = F, message=F, warning=FALSE}
+tab_clean = tabelas[,6:15]
+modelo = lm(tab_clean$PM2.5 ~ tab_clean$PM10 + tab_clean$SO2 + tab_clean$CO + tab_clean$NO2 + tab_clean$O3, data = tab_clean)
+summary(modelo)
+plot(modelo)
+```
+
+###**Forecasting de PM2.5**
+
+
+Realizando a previsão de PM2.5 para os próximos 24 meses (último valor presente: Dezembro/2017).
+Apresentado duas previsões, com e sem sazonalidade (gamma), com taxa de confiança de 80%.
+Verifica-se que no gráfico com sazonalidade a previsão varia até 200 ug/m³ e sem sazonalidade a previsão linear é de aumento.
+
+```{r, echo = F, message=F, warning=FALSE}
+
+#Concatenar ano e mes
+
+tabelas$Date <- with(tabelas, sprintf("%d-%02d", tabelas$year, tabelas$month))
+#head(tabelas)
+
+#agregação pela média e por periodo de mes e ano
+agg_anomes_media = aggregate(tabelas$PM2.5,by = list(periodo = tabelas$Date),FUN = mean, na.rm = TRUE)
+
+serie = ts(agg_anomes_media$x, start = c(2013,1), end = c(2017,12), frequency = 12)
+
+holt_gama = HoltWinters(serie, gamma = T)
+#plot(holt)
+#plot(fitted(holt))
+
+pred = predict(holt_gama, 24, prediction.interval = T, level = 0.8)
+plot(holt_gama,pred, main = "Previsão com Sazonalidade - Holt Winters 24 períodos", xlab = "Período", ylab = "Volume médio de PM 2.5 (μg/m³)")
+
+
+holt = HoltWinters(serie, gamma = F)
+#plot(holt)
+#plot(fitted(holt))
+
+pred = predict(holt, 24, prediction.interval = T, level = 0.8)
+plot(holt,pred, main = "Previsão sem Sazonalidade - Holt Winters 24 períodos",  xlab = "Período", ylab = "Volume médio de PM 2.5 (μg/m³)")
+
+```
+
+
+
